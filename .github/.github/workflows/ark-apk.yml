@@ -1,0 +1,66 @@
+name: ARK Personal AI Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build web application
+        run: npm run build:dev
+
+      - name: Prepare Capacitor
+        run: |
+          npm install @capacitor/core @capacitor/cli @capacitor/android --no-audit --no-fund
+
+      - name: Create Capacitor configuration
+        run: |
+          cat > capacitor.config.json <<'EOF'
+          {
+            "appId": "com.aicsltech.ark",
+            "appName": "ARK Personal AI",
+            "webDir": ".vercel/output/static",
+            "server": {
+              "androidScheme": "https"
+            }
+          }
+          EOF
+
+      - name: Add Android platform
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Build Android APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ARK-Personal-AI-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
