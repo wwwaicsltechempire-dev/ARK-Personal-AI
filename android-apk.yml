@@ -1,4 +1,4 @@
-name: Build ARK Android APK
+name: ARK Personal AI Android APK
 
 on:
   workflow_dispatch:
@@ -11,40 +11,53 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout project
+      - name: Checkout source code
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
-      - name: Install project dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
 
       - name: Build web application
-        run: npm run build
+        run: npm run build:dev
 
-      - name: Install Capacitor
+      - name: Prepare Capacitor
         run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npm install @capacitor/core @capacitor/cli @capacitor/android --no-audit --no-fund
 
-      - name: Create Android project
+      - name: Create Capacitor configuration
         run: |
-          npx cap init "ARK Personal AI" "com.aicsltech.ark" --web-dir dist
+          cat > capacitor.config.json <<'EOF'
+          {
+            "appId": "com.aicsltech.ark",
+            "appName": "ARK Personal AI",
+            "webDir": ".vercel/output/static",
+            "server": {
+              "androidScheme": "https"
+            }
+          }
+          EOF
+
+      - name: Add Android platform
+        run: |
           npx cap add android
           npx cap sync android
 
-      - name: Build Debug APK
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Build Android APK
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
